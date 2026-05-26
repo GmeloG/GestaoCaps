@@ -1,0 +1,5 @@
+# Ignore the .claude directory and the dist directory
+/_pycache__
+/.claude
+/dist
+# Ignore node_modules and other common directories
