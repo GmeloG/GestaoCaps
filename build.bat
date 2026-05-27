@@ -50,12 +50,13 @@ if exist "%BUILD_DIST%\GestaoCapsulas.exe" (
     echo.
     echo   Ficheiro gerado: dist\GestaoCapsulas.exe
     echo.
-    echo   Copie para a pasta partilhada:
-    echo     1. dist\GestaoCapsulas.exe
-    echo     2. capsulas.db  (se ja tiver dados)
+    echo   Distribua o .exe pelos utilizadores:
+    echo     dist\GestaoCapsulas.exe  ->  Desktop (ou pasta local) de cada PC
     echo.
-    echo   Os colegas fazem duplo-clique em GestaoCapsulas.exe
-    echo   Abre diretamente como uma aplicacao Windows normal.
+    echo   A base de dados e os ficheiros Excel ficam na rede:
+    echo     \\sidel.com\emea\pt-smf\groups\STORAGE\Maquinas\Producao\caps
+    echo.
+    echo   A app verifica a ligacao a rede automaticamente ao abrir.
     echo.
 ) else (
     echo   ERRO no build. Verifique as mensagens acima.

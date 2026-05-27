@@ -10,12 +10,8 @@ from datetime import datetime
 
 
 # ── Configuration ──────────────────────────────────────────────────────────────
-if getattr(sys, 'frozen', False):
-    APP_DIR = os.path.dirname(sys.executable)
-else:
-    APP_DIR = os.path.dirname(os.path.abspath(__file__))
-
-DB_PATH = os.path.join(APP_DIR, 'capsulas.db')
+NETWORK_PATH = r"\\sidel.com\emea\pt-smf\groups\STORAGE\Máquinas\Produção\caps"
+DB_PATH      = os.path.join(NETWORK_PATH, 'capsulas.db')
 
 ESTADO_OPTIONS = ['Novo', 'Usado', 'Amostras', 'Stock', 'S/ID', 'NOK', 'Outros']
 
@@ -41,7 +37,7 @@ SORT_MAP = {
 
 # ── Database ───────────────────────────────────────────────────────────────────
 def get_conn():
-    return sqlite3.connect(DB_PATH, check_same_thread=False)
+    return sqlite3.connect(DB_PATH, check_same_thread=False, timeout=10)
 
 
 def init_db():
@@ -176,9 +172,12 @@ def read_excel(file):
 
 
 def find_excel_in_folder():
-    for f in os.listdir(APP_DIR):
-        if f.lower().endswith('.xlsx'):
-            return os.path.join(APP_DIR, f)
+    try:
+        for f in os.listdir(NETWORK_PATH):
+            if f.lower().endswith('.xlsx'):
+                return os.path.join(NETWORK_PATH, f)
+    except OSError:
+        pass
     return None
 
 
@@ -502,7 +501,7 @@ class App(ttkb.Window):
             excel_path = filedialog.askopenfilename(
                 title='Selecionar ficheiro Excel',
                 filetypes=[('Excel', '*.xlsx *.xls')],
-                initialdir=APP_DIR,
+                initialdir=NETWORK_PATH,
             )
         if not excel_path:
             return
@@ -576,7 +575,7 @@ class App(ttkb.Window):
             defaultextension='.xlsx',
             initialfile=filename,
             filetypes=[('Excel', '*.xlsx')],
-            initialdir=APP_DIR,
+            initialdir=NETWORK_PATH,
         )
         if path:
             with open(path, 'wb') as f:
@@ -614,5 +613,17 @@ class App(ttkb.Window):
 
 # ── Entry point ────────────────────────────────────────────────────────────────
 if __name__ == '__main__':
+    if not os.path.isdir(NETWORK_PATH):
+        root = tk.Tk()
+        root.withdraw()
+        messagebox.showerror(
+            'Rede não disponível',
+            f'Não foi possível aceder à pasta partilhada:\n\n'
+            f'{NETWORK_PATH}\n\n'
+            'Verifique se está ligado à rede da empresa e tente novamente.'
+        )
+        root.destroy()
+        sys.exit(1)
+
     init_db()
     App().mainloop()
