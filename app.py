@@ -3,10 +3,16 @@ import pandas as pd
 import sqlite3
 import io
 import os
+import sys
 from datetime import datetime
 
 # ── Configuration ─────────────────────────────────────────────────────────────
-APP_DIR = os.path.dirname(os.path.abspath(__file__))
+# When running as a PyInstaller .exe, use the exe's directory so the DB stays
+# in the shared folder and not in the temporary extraction folder.
+if getattr(sys, "frozen", False):
+    APP_DIR = os.path.dirname(sys.executable)
+else:
+    APP_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH  = os.path.join(APP_DIR, "capsulas.db")
 
 ESTADO_OPTIONS = ["Novo", "Usado", "Amostras", "Stock", "S/ID", "NOK", "Outros"]

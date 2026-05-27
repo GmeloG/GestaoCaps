@@ -1,67 +1,89 @@
 # Gestão de Stock de Cápsulas
 
-Aplicação web para gerir o inventário de cápsulas de uma forma simples e intuitiva.
+Aplicação para gerir o inventário de cápsulas de forma simples e intuitiva.
 
-## 🚀 Início Rápido
+---
 
-### Opção 1: Se tem Python instalado
+## Utilização (pasta partilhada)
 
-Clique duplo em **`run.bat`** — é tudo!
+**Os colegas só precisam de fazer duplo-clique em `GestaoCapsulas.exe`.**
 
-### Opção 2: Se não tem Python
+- Uma janela preta abre — é normal, **não fechar**
+- O browser abre automaticamente em `http://localhost:8501`
+- A base de dados (`capsulas.db`) fica sempre na mesma pasta que o `.exe`
 
-1. Execute **`install.bat`** (instala Python automaticamente)
-2. Depois execute **`run.bat`**
+> Se o antivírus bloquear o ficheiro, é necessário adicionar uma exceção para `GestaoCapsulas.exe`.
 
-A app abrirá automaticamente em `http://localhost:8501`
+---
 
-## 📋 Como Usar
+## Como Usar a App
 
-- **🔄 Recarregar Excel** — sincroniza com o ficheiro .xlsx na pasta
-- **➕ Nova Cápsula** — adiciona novo registo manualmente
-- **📤 Exportar Excel** — descarrega todos os dados para Excel
-- **✏️ Editar/Remover** — selecione o ID do registo
-- **🔍 Pesquisa e Filtros** — encontre registos rapidamente
+| Botão | Função |
+|---|---|
+| **Reload** | Sincroniza com o ficheiro `.xlsx` na pasta |
+| **Nova Capsula** | Adiciona um registo manualmente |
+| **Exportar Excel** | Descarrega todos os dados para Excel |
+| **Editar / Remover** | Seleciona o ID do registo na tabela |
+| **Pesquisa e Filtros** | Encontra registos rapidamente |
 
-## 📁 Ficheiros
+---
 
-| Ficheiro           | Descrição                              |
-| ------------------ | -------------------------------------- |
-| `run.bat`          | **Clique aqui para correr a app**      |
-| `install.bat`      | Instala Python (se necessário)         |
-| `app.py`           | Código da aplicação                    |
-| `requirements.txt` | Dependências Python                    |
-| `README.md`        | Este ficheiro                          |
-| `capsulas.db`      | Base de dados (criada automaticamente) |
-| `*.xlsx`           | Ficheiros Excel para importar          |
+## Para o Administrador (gerar o .exe)
 
-## ❓ Resolução de Problemas
+Necessário apenas uma vez, ou quando houver alterações ao código.
 
-### "Python não encontrado"
+**Requisitos:** Python instalado com PyInstaller (`pip install pyinstaller`)
 
-- Execute `install.bat` para instalar Python automaticamente
-- Ou instale manualmente: https://www.python.org/downloads/
-- **Importante:** selecione "Add Python to PATH" durante a instalação
+1. Abrir a pasta do projeto no PC com Python
+2. Fazer duplo-clique em **`build.bat`**
+3. Aguardar 3-5 minutos
+4. Copiar para a pasta partilhada:
+   - `dist\GestaoCapsulas.exe`
+   - `capsulas.db` (se já tiver dados)
 
-### "Porta 8501 já em uso"
+Para correr a app localmente sem gerar o `.exe`:
 
-- Feche outras instâncias da aplicação
-- Ou altere a porta em `run.bat` (mudar `8501` para outro número, ex: `8502`)
+```
+run.bat
+```
 
-### "Erro ao instalar dependências"
+---
 
-- Desconecte da VPN (pode bloquear pip)
-- Execute `run.bat` novamente
-- Ou execute manualmente: `pip install -r requirements.txt`
+## Ficheiros
 
-## 💾 Dados
+| Ficheiro | Descrição |
+|---|---|
+| `GestaoCapsulas.exe` | **Executável para a pasta partilhada** |
+| `capsulas.db` | Base de dados (criada automaticamente) |
+| `build.bat` | Gera o `.exe` a partir do código |
+| `run.bat` | Corre a app localmente (requer Python) |
+| `launcher.py` | Ponto de entrada do PyInstaller |
+| `app.py` | Código da aplicação |
+| `requirements.txt` | Dependências Python |
+| `*.xlsx` | Ficheiros Excel para importar |
 
-- Os dados são guardados automaticamente em `capsulas.db`
-- Registos adicionados manualmente ficam preservados ao recarregar Excel
-- Sempre que recarregar, o Excel é sincronizado com a BD
+---
 
-## 📝 Notas
+## Dados e Segurança
 
-- A aplicação está otimizada para Firefox e Chrome
-- Funciona em qualquer Windows 10+
-- Sem necessidade de instalação — apenas execute `run.bat`
+- Os dados são guardados em `capsulas.db`, na mesma pasta que o `.exe`
+- Registos adicionados manualmente ficam preservados ao recarregar o Excel
+- Fazer backup regular do ficheiro `capsulas.db`
+- Apenas um utilizador deve usar a app de cada vez
+
+---
+
+## Resolução de Problemas
+
+**O browser não abre automaticamente**
+- Abrir manualmente: `http://localhost:8501`
+
+**"Porta 8501 já em uso"**
+- Fechar outras instâncias da aplicação (verificar se a janela preta ainda está aberta)
+
+**Antivírus bloqueia o ficheiro**
+- Adicionar exceção para `GestaoCapsulas.exe` no antivírus da empresa
+
+**Erro ao gerar o .exe**
+- Verificar que o PyInstaller está instalado: `pip install pyinstaller`
+- Desligar VPN durante o build

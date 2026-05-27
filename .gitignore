@@ -1,5 +1,7 @@
 # Ignore the .claude directory and the dist directory
-/_pycache__
+/__pycache__
 /.claude
 /dist
+/build
+*.spec
 # Ignore node_modules and other common directories
