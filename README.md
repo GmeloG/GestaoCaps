@@ -1,6 +1,6 @@
 # Gestão de Stock de Cápsulas
 
-Aplicação para gerir o inventário de cápsulas de forma simples e intuitiva.
+Aplicação Windows para gerir o inventário de cápsulas de forma simples e intuitiva.
 
 ---
 
@@ -8,8 +8,7 @@ Aplicação para gerir o inventário de cápsulas de forma simples e intuitiva.
 
 **Os colegas só precisam de fazer duplo-clique em `GestaoCapsulas.exe`.**
 
-- Uma janela preta abre — é normal, **não fechar**
-- O browser abre automaticamente em `http://localhost:8501`
+- Abre diretamente como uma janela Windows normal — sem browser, sem instalação
 - A base de dados (`capsulas.db`) fica sempre na mesma pasta que o `.exe`
 
 > Se o antivírus bloquear o ficheiro, é necessário adicionar uma exceção para `GestaoCapsulas.exe`.
@@ -18,13 +17,17 @@ Aplicação para gerir o inventário de cápsulas de forma simples e intuitiva.
 
 ## Como Usar a App
 
-| Botão | Função |
+| Ação | Como fazer |
 |---|---|
-| **Reload** | Sincroniza com o ficheiro `.xlsx` na pasta |
-| **Nova Capsula** | Adiciona um registo manualmente |
-| **Exportar Excel** | Descarrega todos os dados para Excel |
-| **Editar / Remover** | Seleciona o ID do registo na tabela |
-| **Pesquisa e Filtros** | Encontra registos rapidamente |
+| **Reload Excel** | Importa o ficheiro `.xlsx` da mesma pasta |
+| **Nova Cápsula** | Abre formulário para adicionar manualmente |
+| **Exportar Excel** | Guarda todos os dados num ficheiro Excel |
+| **Editar registo** | Duplo-clique na linha, ou selecionar ID e clicar Editar |
+| **Apagar registo** | Selecionar ID e clicar Apagar (pede confirmação) |
+| **Pesquisa** | Escrever na caixa de pesquisa (filtra em tempo real) |
+| **Filtrar por Estado** | Selecionar estado no filtro |
+| **Ordenar** | Clicar no cabeçalho de qualquer coluna |
+| **Menu de contexto** | Botão direito do rato numa linha |
 
 ---
 
@@ -32,7 +35,7 @@ Aplicação para gerir o inventário de cápsulas de forma simples e intuitiva.
 
 Necessário apenas uma vez, ou quando houver alterações ao código.
 
-**Requisitos:** Python instalado com PyInstaller (`pip install pyinstaller`)
+**Requisitos:** Python com as dependências instaladas (`install.bat`)
 
 1. Abrir a pasta do projeto no PC com Python
 2. Fazer duplo-clique em **`build.bat`**
@@ -57,7 +60,7 @@ run.bat
 | `capsulas.db` | Base de dados (criada automaticamente) |
 | `build.bat` | Gera o `.exe` a partir do código |
 | `run.bat` | Corre a app localmente (requer Python) |
-| `launcher.py` | Ponto de entrada do PyInstaller |
+| `install.bat` | Instala Python e dependências |
 | `app.py` | Código da aplicação |
 | `requirements.txt` | Dependências Python |
 | `*.xlsx` | Ficheiros Excel para importar |
@@ -75,15 +78,10 @@ run.bat
 
 ## Resolução de Problemas
 
-**O browser não abre automaticamente**
-- Abrir manualmente: `http://localhost:8501`
-
-**"Porta 8501 já em uso"**
-- Fechar outras instâncias da aplicação (verificar se a janela preta ainda está aberta)
-
 **Antivírus bloqueia o ficheiro**
 - Adicionar exceção para `GestaoCapsulas.exe` no antivírus da empresa
 
 **Erro ao gerar o .exe**
-- Verificar que o PyInstaller está instalado: `pip install pyinstaller`
-- Desligar VPN durante o build
+- Verificar que o Python está instalado: correr `install.bat`
+- O build usa uma pasta temporária local para evitar conflitos com o OneDrive
+- Desligar VPN durante o build se houver erros de rede

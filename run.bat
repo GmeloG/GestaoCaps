@@ -12,11 +12,7 @@ echo Instalando dependencias...
 pip install -q -r requirements.txt
 
 echo.
-echo Abrindo app em http://localhost:8501
-echo.
-timeout /t 2 >nul
-
-start http://localhost:8501 2>nul
-python -m streamlit run app.py --server.port 8501
+echo A abrir a aplicacao...
+python app.py
 
 pause

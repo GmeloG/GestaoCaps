@@ -1,4 +1,6 @@
-import streamlit as st
+import tkinter as tk
+from tkinter import ttk, messagebox, filedialog
+import ttkbootstrap as ttkb
 import pandas as pd
 import sqlite3
 import io
@@ -6,34 +8,34 @@ import os
 import sys
 from datetime import datetime
 
-# ── Configuration ─────────────────────────────────────────────────────────────
-# When running as a PyInstaller .exe, use the exe's directory so the DB stays
-# in the shared folder and not in the temporary extraction folder.
-if getattr(sys, "frozen", False):
+
+# ── Configuration ──────────────────────────────────────────────────────────────
+if getattr(sys, 'frozen', False):
     APP_DIR = os.path.dirname(sys.executable)
 else:
     APP_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_PATH  = os.path.join(APP_DIR, "capsulas.db")
 
-ESTADO_OPTIONS = ["Novo", "Usado", "Amostras", "Stock", "S/ID", "NOK", "Outros"]
+DB_PATH = os.path.join(APP_DIR, 'capsulas.db')
+
+ESTADO_OPTIONS = ['Novo', 'Usado', 'Amostras', 'Stock', 'S/ID', 'NOK', 'Outros']
 
 ESTADO_COLORS = {
-    "Novo":     "#d4edda",
-    "Usado":    "#fff3cd",
-    "Amostras": "#cce5ff",
-    "NOK":      "#f8d7da",
-    "Stock":    "#e2e3e5",
-    "S/ID":     "#fce8b2",
-    "Outros":   "#e8d5f5",
+    'Novo':     '#d4edda',
+    'Usado':    '#fff3cd',
+    'Amostras': '#cce5ff',
+    'NOK':      '#f8d7da',
+    'Stock':    '#e2e3e5',
+    'S/ID':     '#fce8b2',
+    'Outros':   '#e8d5f5',
 }
 
+COL_DISPLAY = ['ID', 'Localização', 'Projeto', 'Código', 'Data receção', 'Qtd.', 'Estado', 'Obs.']
+COL_KEYS    = ['id', 'localizacao', 'projeto', 'codigo', 'data_rececao', 'qtd', 'estado', 'obs']
+COL_WIDTHS  = [45, 120, 200, 130, 100, 55, 85, 0]  # 0 = stretch
+
 SORT_MAP = {
-    "Localização":  "localizacao",
-    "Projeto":      "projeto",
-    "Estado":       "estado",
-    "Código":       "codigo",
-    "Data receção": "data_rececao",
-    "Quantidade":   "qtd",
+    'ID': 'id', 'Localização': 'localizacao', 'Projeto': 'projeto',
+    'Estado': 'estado', 'Código': 'codigo', 'Data receção': 'data_rececao', 'Qtd.': 'qtd',
 }
 
 
@@ -59,7 +61,6 @@ def init_db():
                 updated_at   TEXT DEFAULT (datetime('now'))
             )
         """)
-        # Migration: add source column to existing databases
         try:
             conn.execute("ALTER TABLE capsulas ADD COLUMN source TEXT DEFAULT 'excel'")
         except Exception:
@@ -67,98 +68,90 @@ def init_db():
         conn.commit()
 
 
-def db_is_empty() -> bool:
+def db_is_empty():
     with get_conn() as conn:
         return conn.execute("SELECT COUNT(*) FROM capsulas").fetchone()[0] == 0
 
 
-def load_all() -> pd.DataFrame:
+def load_all():
     with get_conn() as conn:
         return pd.read_sql("SELECT * FROM capsulas ORDER BY id", conn)
 
 
-def insert_row(d: dict):
+def insert_row(d):
     with get_conn() as conn:
         conn.execute(
             "INSERT INTO capsulas (localizacao,projeto,codigo,data_rececao,qtd,estado,obs,source) "
             "VALUES (?,?,?,?,?,?,?,'manual')",
-            (d["localizacao"], d["projeto"], d["codigo"],
-             d["data_rececao"], d["qtd"], d["estado"], d["obs"]),
+            (d['localizacao'], d['projeto'], d['codigo'],
+             d['data_rececao'], d['qtd'], d['estado'], d['obs']),
         )
         conn.commit()
 
 
-def update_row(row_id: int, d: dict):
+def update_row(row_id, d):
     with get_conn() as conn:
         conn.execute(
             "UPDATE capsulas SET localizacao=?,projeto=?,codigo=?,data_rececao=?,qtd=?,"
             "estado=?,obs=?,updated_at=datetime('now') WHERE id=?",
-            (d["localizacao"], d["projeto"], d["codigo"],
-             d["data_rececao"], d["qtd"], d["estado"], d["obs"], row_id),
+            (d['localizacao'], d['projeto'], d['codigo'],
+             d['data_rececao'], d['qtd'], d['estado'], d['obs'], row_id),
         )
         conn.commit()
 
 
-def delete_row(row_id: int):
+def delete_row(row_id):
     with get_conn() as conn:
         conn.execute("DELETE FROM capsulas WHERE id=?", (row_id,))
         conn.commit()
 
 
-def bulk_import(df: pd.DataFrame):
+def bulk_import(df):
     with get_conn() as conn:
-        # Remove only Excel-sourced records, keep manual ones
         conn.execute("DELETE FROM capsulas WHERE source='excel' OR source IS NULL")
-        # Reset auto-increment to max manual ID so Excel records restart from 1
-        # (sqlite_sequence has no PK, so INSERT OR REPLACE creates duplicates — use DELETE+INSERT)
         max_manual = conn.execute(
             "SELECT COALESCE(MAX(id), 0) FROM capsulas WHERE source='manual'"
         ).fetchone()[0]
         conn.execute("DELETE FROM sqlite_sequence WHERE name='capsulas'")
-        conn.execute(
-            "INSERT INTO sqlite_sequence (name, seq) VALUES ('capsulas', ?)",
-            (max_manual,),
-        )
+        conn.execute("INSERT INTO sqlite_sequence (name, seq) VALUES ('capsulas', ?)", (max_manual,))
         for _, r in df.iterrows():
             conn.execute(
                 "INSERT INTO capsulas (localizacao,projeto,codigo,data_rececao,qtd,estado,obs,source) "
                 "VALUES (?,?,?,?,?,?,?,'excel')",
-                (_safe(r, "localizacao"), _safe(r, "projeto"), _safe(r, "codigo"),
-                 _safe(r, "data_rececao"), _safe(r, "qtd"), _safe(r, "estado"), _safe(r, "obs")),
+                (_safe(r, 'localizacao'), _safe(r, 'projeto'), _safe(r, 'codigo'),
+                 _safe(r, 'data_rececao'), _safe(r, 'qtd'), _safe(r, 'estado'), _safe(r, 'obs')),
             )
         conn.commit()
 
 
 def _safe(row, col):
-    v = row.get(col, "")
-    return "" if pd.isna(v) or str(v) in ("nan", "NaT", "None") else str(v).strip()
+    v = row.get(col, '')
+    return '' if pd.isna(v) or str(v) in ('nan', 'NaT', 'None') else str(v).strip()
 
 
 # ── Excel helpers ──────────────────────────────────────────────────────────────
-def _normalize_estado(v) -> str:
-    if pd.isna(v) or str(v).strip() in ("", "nan"):
-        return ""
+def _normalize_estado(v):
+    if pd.isna(v) or str(v).strip() in ('', 'nan'):
+        return ''
     mapping = {
-        "novo": "Novo", "novas": "Novo", "new": "Novo",
-        "usado": "Usado", "usadas": "Usado", "usadas e novas": "Usado",
-        "amostras": "Amostras", "amostra": "Amostras",
-        "s/id": "S/ID", "sem id": "S/ID", "sem identificação": "S/ID",
-        "stock": "Stock",
-        "nok": "NOK",
-        "outros": "Outros",
+        'novo': 'Novo', 'novas': 'Novo', 'new': 'Novo',
+        'usado': 'Usado', 'usadas': 'Usado', 'usadas e novas': 'Usado',
+        'amostras': 'Amostras', 'amostra': 'Amostras',
+        's/id': 'S/ID', 'sem id': 'S/ID', 'sem identificação': 'S/ID',
+        'stock': 'Stock', 'nok': 'NOK', 'outros': 'Outros',
     }
     return mapping.get(str(v).lower().strip(), str(v).strip())
 
 
-def _detect_col(columns: list) -> dict:
+def _detect_col(columns):
     targets = {
-        "localizacao":  ["local", "loca"],
-        "projeto":      ["projeto", "project"],
-        "codigo":       ["digo", "cod", "code"],
-        "data_rececao": ["data", "rece"],
-        "qtd":          ["qtd", "quant"],
-        "estado":       ["estado", "state", "status"],
-        "obs":          ["obs"],
+        'localizacao':  ['local', 'loca'],
+        'projeto':      ['projeto', 'project'],
+        'codigo':       ['digo', 'cod', 'code'],
+        'data_rececao': ['data', 'rece'],
+        'qtd':          ['qtd', 'quant'],
+        'estado':       ['estado', 'state', 'status'],
+        'obs':          ['obs'],
     }
     result = {}
     for col in columns:
@@ -170,399 +163,456 @@ def _detect_col(columns: list) -> dict:
     return result
 
 
-def read_excel(file) -> pd.DataFrame:
-    xl = pd.ExcelFile(file, engine="openpyxl")
+def read_excel(file):
+    xl = pd.ExcelFile(file, engine='openpyxl')
     df = xl.parse(xl.sheet_names[0])
     df = df.rename(columns=_detect_col(df.columns.tolist()))
-    if "estado" in df.columns:
-        df["estado"] = df["estado"].apply(_normalize_estado)
-    for col in ["localizacao", "projeto", "codigo", "data_rececao", "qtd", "estado", "obs"]:
+    if 'estado' in df.columns:
+        df['estado'] = df['estado'].apply(_normalize_estado)
+    for col in ['localizacao', 'projeto', 'codigo', 'data_rececao', 'qtd', 'estado', 'obs']:
         if col not in df.columns:
-            df[col] = ""
-    return df[["localizacao", "projeto", "codigo", "data_rececao", "qtd", "estado", "obs"]]
+            df[col] = ''
+    return df[['localizacao', 'projeto', 'codigo', 'data_rececao', 'qtd', 'estado', 'obs']]
 
 
-def find_excel_in_folder() -> str | None:
-    """Return path of first .xlsx found in the app folder, or None."""
+def find_excel_in_folder():
     for f in os.listdir(APP_DIR):
-        if f.lower().endswith(".xlsx"):
+        if f.lower().endswith('.xlsx'):
             return os.path.join(APP_DIR, f)
     return None
 
 
-def to_excel_bytes(df: pd.DataFrame) -> bytes:
+def to_excel_bytes(df):
     from openpyxl.styles import PatternFill, Font, Alignment
     from openpyxl.utils import get_column_letter
 
     out = io.BytesIO()
-    export_df = df[["localizacao", "projeto", "codigo", "data_rececao", "qtd", "estado", "obs"]].copy()
-    export_df.columns = ["Localização", "Projeto", "Código", "Data receção", "Qtd.", "Estado", "Obs."]
-    export_df = export_df.replace("", pd.NA)
+    export_df = df[['localizacao', 'projeto', 'codigo', 'data_rececao', 'qtd', 'estado', 'obs']].copy()
+    export_df.columns = ['Localização', 'Projeto', 'Código', 'Data receção', 'Qtd.', 'Estado', 'Obs.']
+    export_df = export_df.replace('', pd.NA)
 
-    with pd.ExcelWriter(out, engine="openpyxl") as writer:
-        export_df.to_excel(writer, sheet_name="Cápsulas", index=False)
-        ws = writer.sheets["Cápsulas"]
+    with pd.ExcelWriter(out, engine='openpyxl') as writer:
+        export_df.to_excel(writer, sheet_name='Cápsulas', index=False)
+        ws = writer.sheets['Cápsulas']
 
-        hdr_fill = PatternFill("solid", fgColor="1F3864")
-        hdr_font = Font(color="FFFFFF", bold=True, size=11)
+        hdr_fill = PatternFill('solid', fgColor='1F3864')
+        hdr_font = Font(color='FFFFFF', bold=True, size=11)
         for cell in ws[1]:
             cell.fill = hdr_fill
             cell.font = hdr_font
-            cell.alignment = Alignment(horizontal="center", vertical="center")
+            cell.alignment = Alignment(horizontal='center', vertical='center')
 
-        color_map = {k: v.lstrip("#") for k, v in ESTADO_COLORS.items()}
+        color_map = {k: v.lstrip('#') for k, v in ESTADO_COLORS.items()}
         for row_idx in range(2, ws.max_row + 1):
-            estado_val = str(ws.cell(row=row_idx, column=6).value or "")
+            estado_val = str(ws.cell(row=row_idx, column=6).value or '')
             if estado_val in color_map:
-                fill = PatternFill("solid", fgColor=color_map[estado_val])
+                fill = PatternFill('solid', fgColor=color_map[estado_val])
                 for col_idx in range(1, 8):
                     ws.cell(row=row_idx, column=col_idx).fill = fill
 
         for i, w in enumerate([12, 28, 16, 14, 6, 12, 45], start=1):
             ws.column_dimensions[get_column_letter(i)].width = w
         ws.row_dimensions[1].height = 20
-        ws.freeze_panes = "A2"
+        ws.freeze_panes = 'A2'
 
     return out.getvalue()
 
 
-# ── Streamlit app ──────────────────────────────────────────────────────────────
-st.set_page_config(
-    page_title="Gestão de Stock de Cápsulas",
-    page_icon="🧩",
-    layout="wide",
-    initial_sidebar_state="collapsed",
-)
+# ── Form Dialog ────────────────────────────────────────────────────────────────
+class FormDialog(tk.Toplevel):
+    def __init__(self, parent, title, defaults=None, on_save=None):
+        super().__init__(parent)
+        self.title(title)
+        self.on_save = on_save
+        self.resizable(False, False)
+        self.transient(parent)
+        self.grab_set()
 
-init_db()
+        d = defaults or {}
+        p = {'padx': 8, 'pady': 5}
 
-# Auto-load Excel on first run (empty DB)
-if db_is_empty():
-    excel_path = find_excel_in_folder()
-    if excel_path:
-        try:
-            df_auto = read_excel(excel_path)
-            bulk_import(df_auto)
-        except Exception as e:
-            pass
+        frm = ttk.Frame(self, padding=16)
+        frm.pack(fill=tk.BOTH, expand=True)
 
-# CSS
-st.markdown("""
-<style>
-.app-header {
-    background: linear-gradient(135deg, #1F3864 0%, #2E75B6 100%);
-    padding: 18px 24px;
-    border-radius: 12px;
-    margin-bottom: 24px;
-    color: white;
-}
-.app-header h1 { margin: 0; font-size: 1.7rem; }
-.app-header p  { margin: 4px 0 0; opacity: 0.85; font-size: 0.9rem; }
+        # Row 0 — Localização + Projeto
+        ttk.Label(frm, text='Localização *').grid(row=0, column=0, sticky='w', **p)
+        self.v_loc = tk.StringVar(value=d.get('localizacao', ''))
+        ttk.Entry(frm, textvariable=self.v_loc, width=22).grid(row=0, column=1, sticky='ew', **p)
 
-.stDataFrame { border-radius: 8px; overflow: hidden; }
+        ttk.Label(frm, text='Projeto').grid(row=0, column=2, sticky='w', **p)
+        self.v_proj = tk.StringVar(value=d.get('projeto', ''))
+        ttk.Entry(frm, textvariable=self.v_proj, width=32).grid(row=0, column=3, columnspan=3, sticky='ew', **p)
 
-.badge {
-    display: inline-block;
-    padding: 2px 10px;
-    border-radius: 12px;
-    font-size: 0.78rem;
-    font-weight: 600;
-    margin: 2px;
-    color: #333;
-}
+        # Row 1 — Código + Data + Qtd + Estado
+        ttk.Label(frm, text='Código').grid(row=1, column=0, sticky='w', **p)
+        self.v_cod = tk.StringVar(value=d.get('codigo', ''))
+        ttk.Entry(frm, textvariable=self.v_cod, width=22).grid(row=1, column=1, sticky='ew', **p)
 
-/* Statistics cards - VISIVEL */
-.stat-card {
-    background: #0052cc;
-    border-radius: 12px;
-    padding: 24px 16px;
-    text-align: center;
-    border: 3px solid #0066ff;
-    box-shadow: 0 8px 20px rgba(0, 102, 255, 0.5);
-}
-.stat-card .stat-value {
-    font-size: 2rem !important;
-    font-weight: 800 !important;
-    color: #ffffff !important;
-    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5) !important;
-    margin: 10px 0 8px 0 !important;
-    line-height: 1 !important;
-}
-.stat-card .stat-label {
-    font-size: 1rem !important;
-    color: #ffffff !important;
-    font-weight: 700 !important;
-    margin: 10px 0 0 0 !important;
-    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.4) !important;
-}
-</style>
-""", unsafe_allow_html=True)
+        ttk.Label(frm, text='Data receção').grid(row=1, column=2, sticky='w', **p)
+        self.v_data = tk.StringVar(value=d.get('data_rececao', ''))
+        ttk.Entry(frm, textvariable=self.v_data, width=14).grid(row=1, column=3, sticky='ew', **p)
 
-# ── Session state ──────────────────────────────────────────────────────────────
-for key, default in [
-    ("confirm_delete", None),
-    ("edit_id", None),
-    ("show_form", False),
-]:
-    if key not in st.session_state:
-        st.session_state[key] = default
+        ttk.Label(frm, text='Qtd.').grid(row=1, column=4, sticky='w', **p)
+        self.v_qtd = tk.StringVar(value=d.get('qtd', ''))
+        ttk.Entry(frm, textvariable=self.v_qtd, width=8).grid(row=1, column=5, sticky='ew', **p)
 
+        # Row 2 — Estado
+        ttk.Label(frm, text='Estado').grid(row=2, column=0, sticky='w', **p)
+        self.v_estado = tk.StringVar(value=d.get('estado', ESTADO_OPTIONS[0]))
+        cb = ttk.Combobox(frm, textvariable=self.v_estado, values=ESTADO_OPTIONS,
+                          state='readonly', width=14)
+        cb.grid(row=2, column=1, sticky='w', **p)
 
-# ══════════════════════════════════════════════════════════════════════════════
-# HEADER
-# ══════════════════════════════════════════════════════════════════════════════
-st.markdown(
-    '<div class="app-header">'
-    '<h1>🧩 Gestão de Stock de Cápsulas</h1>'
-    '<p>Visualize, edite e exporte o inventário de cápsulas</p>'
-    '</div>',
-    unsafe_allow_html=True,
-)
+        # Row 3 — Obs
+        ttk.Label(frm, text='Observações').grid(row=3, column=0, sticky='nw', **p)
+        self.txt_obs = tk.Text(frm, height=3, width=62, font=('Segoe UI', 9))
+        self.txt_obs.grid(row=3, column=1, columnspan=5, sticky='ew', **p)
+        self.txt_obs.insert('1.0', d.get('obs', ''))
+
+        # Buttons
+        btn_frm = ttk.Frame(frm)
+        btn_frm.grid(row=4, column=0, columnspan=6, sticky='w', pady=(10, 0))
+        ttk.Button(btn_frm, text='💾  Guardar', command=self._save,
+                   bootstyle='success').pack(side=tk.LEFT, padx=(0, 6))
+        ttk.Button(btn_frm, text='Cancelar', command=self.destroy,
+                   bootstyle='secondary').pack(side=tk.LEFT)
+
+        self.update_idletasks()
+        pw, ph = parent.winfo_width(), parent.winfo_height()
+        px, py = parent.winfo_x(), parent.winfo_y()
+        dw, dh = self.winfo_width(), self.winfo_height()
+        self.geometry(f'+{px + (pw - dw) // 2}+{py + (ph - dh) // 2}')
+
+        self.bind('<Return>', lambda e: self._save())
+        self.bind('<Escape>', lambda e: self.destroy())
+        self.wait_window()
+
+    def _save(self):
+        loc = self.v_loc.get().strip()
+        if not loc:
+            messagebox.showerror('Erro', 'A Localização é obrigatória.', parent=self)
+            return
+        d = {
+            'localizacao': loc,
+            'projeto':     self.v_proj.get().strip(),
+            'codigo':      self.v_cod.get().strip(),
+            'data_rececao': self.v_data.get().strip(),
+            'qtd':         self.v_qtd.get().strip(),
+            'estado':      self.v_estado.get(),
+            'obs':         self.txt_obs.get('1.0', tk.END).strip(),
+        }
+        if self.on_save:
+            self.on_save(d)
+        self.destroy()
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-# ACTION BAR
-# ══════════════════════════════════════════════════════════════════════════════
-bar_cols = st.columns([1, 1, 1, 1])
-
-# — Reload Excel
-with bar_cols[0]:
-    if st.button("🔄 Reload", use_container_width=True, type="primary"):
-        excel_path = find_excel_in_folder()
-        if excel_path:
-            df_imp = read_excel(excel_path)
-            bulk_import(df_imp)
-            st.success(f"✅ Excel recarregado")
-            st.rerun()
-
-# — Add
-with bar_cols[1]:
-    if st.button("➕ Nova Cápsula", use_container_width=True):
-        st.session_state.show_form = not st.session_state.show_form
-        st.session_state.edit_id = None
-        st.rerun()
-
-# — Export
-with bar_cols[2]:
-    df_all = load_all()
-    if not df_all.empty:
-        st.download_button(
-            "📤 Exportar Excel",
-            data=to_excel_bytes(df_all),
-            file_name=f"capsulas_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            use_container_width=True,
+# ── Main Application ───────────────────────────────────────────────────────────
+class App(ttkb.Window):
+    def __init__(self):
+        super().__init__(
+            title='Gestão de Stock de Cápsulas',
+            themename='cosmo',
+            minsize=(1100, 640),
         )
+        self._df = pd.DataFrame()
+        self._build_ui()
+        self._refresh()
+        self.state('zoomed')
 
+    def _build_ui(self):
+        # ── Header ──────────────────────────────────────────────────────────────
+        hdr = tk.Frame(self, bg='#1F3864', pady=10)
+        hdr.pack(fill=tk.X)
+        tk.Label(hdr, text='  Gestão de Stock de Cápsulas',
+                 bg='#1F3864', fg='white',
+                 font=('Segoe UI', 15, 'bold')).pack(side=tk.LEFT, padx=8)
+        tk.Label(hdr, text='Visualize, edite e exporte o inventário de cápsulas',
+                 bg='#1F3864', fg='#aaccff',
+                 font=('Segoe UI', 9)).pack(side=tk.LEFT, padx=4)
 
-# ══════════════════════════════════════════════════════════════════════════════
-# ADD / EDIT FORM
-# ══════════════════════════════════════════════════════════════════════════════
-def _form(title: str, defaults: dict = None):
-    d = defaults or {}
-    with st.form("cap_form", clear_on_submit=True):
-        st.markdown(f"**{title}**")
-        c1, c2, c3 = st.columns(3)
-        localizacao  = c1.text_input("Localização *",  value=d.get("localizacao", ""))
-        projeto      = c1.text_input("Projeto",         value=d.get("projeto", ""))
-        codigo       = c2.text_input("Código",           value=d.get("codigo", ""))
-        data_rececao = c2.text_input("Data receção",     value=d.get("data_rececao", ""))
-        qtd          = c3.text_input("Quantidade",       value=d.get("qtd", ""))
-        estado_idx   = ESTADO_OPTIONS.index(d["estado"]) if d.get("estado") in ESTADO_OPTIONS else 0
-        estado       = c3.selectbox("Estado", ESTADO_OPTIONS, index=estado_idx)
-        obs          = st.text_area("Observações", value=d.get("obs", ""), height=80)
+        # ── Toolbar ─────────────────────────────────────────────────────────────
+        tb = ttk.Frame(self, padding=(10, 6))
+        tb.pack(fill=tk.X)
+        ttk.Button(tb, text='🔄  Reload Excel',   command=self._reload_excel,
+                   bootstyle='primary', width=17).pack(side=tk.LEFT, padx=3)
+        ttk.Button(tb, text='➕  Nova Cápsula',   command=self._add_row,
+                   bootstyle='success', width=17).pack(side=tk.LEFT, padx=3)
+        ttk.Button(tb, text='📤  Exportar Excel', command=self._export_excel,
+                   bootstyle='info',    width=17).pack(side=tk.LEFT, padx=3)
 
-        sc1, sc2 = st.columns([1, 5])
-        saved    = sc1.form_submit_button("💾 Guardar", type="primary")
-        canceled = sc2.form_submit_button("Cancelar")
+        # ── Filters ─────────────────────────────────────────────────────────────
+        flt = ttk.LabelFrame(self, text='Filtros', padding=(10, 5))
+        flt.pack(fill=tk.X, padx=10, pady=(2, 0))
 
-        if saved:
-            if not localizacao.strip():
-                st.error("A Localização é obrigatória.")
-                return
-            row = dict(
-                localizacao=localizacao.strip(), projeto=projeto.strip(),
-                codigo=codigo.strip(), data_rececao=data_rececao.strip(),
-                qtd=qtd.strip(), estado=estado, obs=obs.strip(),
+        ttk.Label(flt, text='Pesquisar:').pack(side=tk.LEFT, padx=(0, 3))
+        self.v_search = tk.StringVar()
+        self.v_search.trace_add('write', lambda *_: self._apply_filters())
+        ttk.Entry(flt, textvariable=self.v_search, width=26).pack(side=tk.LEFT, padx=(0, 14))
+
+        ttk.Label(flt, text='Estado:').pack(side=tk.LEFT, padx=(0, 3))
+        self.v_estado_f = tk.StringVar(value='Todos')
+        self.v_estado_f.trace_add('write', lambda *_: self._apply_filters())
+        ttk.Combobox(flt, textvariable=self.v_estado_f,
+                     values=['Todos'] + ESTADO_OPTIONS,
+                     state='readonly', width=12).pack(side=tk.LEFT, padx=(0, 14))
+
+        ttk.Label(flt, text='Ordenar por:').pack(side=tk.LEFT, padx=(0, 3))
+        self.v_sort = tk.StringVar(value='Localização')
+        self.v_sort.trace_add('write', lambda *_: self._apply_filters())
+        ttk.Combobox(flt, textvariable=self.v_sort,
+                     values=list(SORT_MAP.keys()),
+                     state='readonly', width=14).pack(side=tk.LEFT, padx=(0, 6))
+
+        self.v_asc = tk.BooleanVar(value=True)
+        ttk.Checkbutton(flt, text='Crescente', variable=self.v_asc,
+                        command=self._apply_filters,
+                        bootstyle='round-toggle').pack(side=tk.LEFT, padx=4)
+
+        # ── Stat cards ──────────────────────────────────────────────────────────
+        sf = ttk.Frame(self, padding=(10, 6))
+        sf.pack(fill=tk.X)
+        self._stat_vals = {}
+        for key in ['Registos', 'Total cápsulas', 'Localizações', 'Projetos', 'Total na BD']:
+            card = tk.Frame(sf, bg='#1558b0', padx=14, pady=8)
+            card.pack(side=tk.LEFT, padx=5, fill=tk.X, expand=True)
+            vl = tk.Label(card, text='—', font=('Segoe UI', 20, 'bold'),
+                          bg='#1558b0', fg='white')
+            vl.pack()
+            tk.Label(card, text=key, font=('Segoe UI', 8),
+                     bg='#1558b0', fg='#cce0ff').pack()
+            self._stat_vals[key] = vl
+
+        # ── Table ───────────────────────────────────────────────────────────────
+        tbl = ttk.Frame(self, padding=(10, 2))
+        tbl.pack(fill=tk.BOTH, expand=True)
+
+        style = ttk.Style()
+        style.configure('Treeview', rowheight=22, font=('Segoe UI', 9))
+        style.configure('Treeview.Heading', font=('Segoe UI', 9, 'bold'))
+
+        self.tree = ttk.Treeview(tbl, columns=COL_DISPLAY, show='headings',
+                                  selectmode='browse')
+
+        for col, width in zip(COL_DISPLAY, COL_WIDTHS):
+            anchor = 'center' if col in ('ID', 'Qtd.') else 'w'
+            stretch = col == 'Obs.'
+            self.tree.heading(col, text=col,
+                              command=lambda c=col: self._col_sort(c))
+            self.tree.column(col, width=width, anchor=anchor,
+                             minwidth=30, stretch=stretch)
+
+        for estado, color in ESTADO_COLORS.items():
+            self.tree.tag_configure(estado, background=color)
+
+        vsb = ttk.Scrollbar(tbl, orient='vertical',   command=self.tree.yview)
+        hsb = ttk.Scrollbar(tbl, orient='horizontal', command=self.tree.xview)
+        self.tree.configure(yscrollcommand=vsb.set, xscrollcommand=hsb.set)
+        vsb.pack(side=tk.RIGHT,  fill=tk.Y)
+        hsb.pack(side=tk.BOTTOM, fill=tk.X)
+        self.tree.pack(fill=tk.BOTH, expand=True)
+
+        self.tree.bind('<<TreeviewSelect>>', self._on_select)
+        self.tree.bind('<Double-1>',         self._on_double_click)
+
+        # Context menu
+        self._ctx = tk.Menu(self, tearoff=0)
+        self._ctx.add_command(label='✏️  Editar',  command=self._edit_selected)
+        self._ctx.add_command(label='🗑️  Apagar', command=self._delete_selected)
+        self.tree.bind('<Button-3>', self._show_ctx)
+
+        # ── Bottom bar ──────────────────────────────────────────────────────────
+        bot = ttk.Frame(self, padding=(10, 5))
+        bot.pack(fill=tk.X)
+
+        ttk.Label(bot, text='ID do registo:').pack(side=tk.LEFT, padx=(0, 4))
+        self.v_id = tk.IntVar(value=1)
+        ttk.Spinbox(bot, from_=1, to=999999, textvariable=self.v_id,
+                    width=7).pack(side=tk.LEFT, padx=(0, 8))
+        ttk.Button(bot, text='✏️  Editar', command=self._edit_by_id,
+                   bootstyle='warning', width=12).pack(side=tk.LEFT, padx=3)
+        ttk.Button(bot, text='🗑️  Apagar', command=self._delete_by_id,
+                   bootstyle='danger',  width=12).pack(side=tk.LEFT, padx=3)
+
+        self.v_status = tk.StringVar()
+        ttk.Label(bot, textvariable=self.v_status,
+                  font=('Segoe UI', 9)).pack(side=tk.RIGHT, padx=10)
+
+    # ── Data ────────────────────────────────────────────────────────────────────
+    def _refresh(self):
+        self._df = load_all()
+        if db_is_empty():
+            excel_path = find_excel_in_folder()
+            if excel_path:
+                try:
+                    bulk_import(read_excel(excel_path))
+                    self._df = load_all()
+                except Exception:
+                    pass
+        self._apply_filters()
+
+    def _apply_filters(self):
+        df = self._df.copy() if not self._df.empty else pd.DataFrame(columns=COL_KEYS)
+
+        q = self.v_search.get().strip().lower()
+        if q and not df.empty:
+            mask = (
+                df['localizacao'].str.lower().str.contains(q, na=False) |
+                df['projeto'].str.lower().str.contains(q, na=False)     |
+                df['codigo'].str.lower().str.contains(q, na=False)      |
+                df['obs'].str.lower().str.contains(q, na=False)
             )
-            if st.session_state.edit_id:
-                update_row(st.session_state.edit_id, row)
-                st.success("✅ Registo atualizado.")
-            else:
-                insert_row(row)
-                st.success("✅ Cápsula adicionada.")
-            st.session_state.show_form = False
-            st.session_state.edit_id = None
-            st.rerun()
+            df = df[mask]
 
-        if canceled:
-            st.session_state.show_form = False
-            st.session_state.edit_id = None
-            st.rerun()
+        estado_f = self.v_estado_f.get()
+        if estado_f != 'Todos' and not df.empty:
+            df = df[df['estado'] == estado_f]
 
+        sort_col = SORT_MAP.get(self.v_sort.get(), 'localizacao')
+        if sort_col in df.columns and not df.empty:
+            df = df.sort_values(sort_col, ascending=self.v_asc.get(), na_position='last')
 
-if st.session_state.show_form and st.session_state.edit_id is None:
-    with st.container(border=True):
-        _form("Adicionar nova cápsula")
+        self._populate_table(df)
+        self._update_stats(df)
 
-if st.session_state.edit_id:
-    df_tmp = load_all()
-    row_match = df_tmp[df_tmp["id"] == st.session_state.edit_id]
-    if not row_match.empty:
-        with st.container(border=True):
-            _form(f"Editar registo ID {st.session_state.edit_id}",
-                  defaults=row_match.iloc[0].to_dict())
+    def _populate_table(self, df):
+        for item in self.tree.get_children():
+            self.tree.delete(item)
+        for _, row in df.iterrows():
+            vals = ['' if str(row.get(k, '')) in ('nan', 'NaT', 'None', 'nan')
+                    else row.get(k, '') for k in COL_KEYS]
+            estado = str(row.get('estado', ''))
+            tag = (estado,) if estado in ESTADO_COLORS else ()
+            self.tree.insert('', tk.END, values=vals, tags=tag)
 
+    def _update_stats(self, df):
+        total_qtd = pd.to_numeric(df['qtd'], errors='coerce').sum() if not df.empty else 0
+        self._stat_vals['Registos'].config(text=str(len(df)))
+        self._stat_vals['Total cápsulas'].config(
+            text=str(int(total_qtd)) if pd.notna(total_qtd) and total_qtd > 0 else '—')
+        self._stat_vals['Localizações'].config(
+            text=str(df['localizacao'].nunique()) if not df.empty else '0')
+        self._stat_vals['Projetos'].config(
+            text=str(df['projeto'].nunique()) if not df.empty else '0')
+        self._stat_vals['Total na BD'].config(text=str(len(self._df)))
 
-# ══════════════════════════════════════════════════════════════════════════════
-# FILTERS
-# ══════════════════════════════════════════════════════════════════════════════
-st.markdown("---")
-f1, f2, f3, f4 = st.columns([3, 2, 2, 2])
+    # ── Actions ─────────────────────────────────────────────────────────────────
+    def _reload_excel(self):
+        excel_path = find_excel_in_folder()
+        if not excel_path:
+            excel_path = filedialog.askopenfilename(
+                title='Selecionar ficheiro Excel',
+                filetypes=[('Excel', '*.xlsx *.xls')],
+                initialdir=APP_DIR,
+            )
+        if not excel_path:
+            return
+        try:
+            bulk_import(read_excel(excel_path))
+            self._df = load_all()
+            self._apply_filters()
+            self._set_status(f'✅ Excel recarregado — {len(self._df)} registos')
+        except Exception as e:
+            messagebox.showerror('Erro ao importar', str(e))
 
-search  = f1.text_input("🔍 Pesquisar", placeholder="Localização, Projeto, Código, Obs…")
-estados = f2.multiselect("Filtrar por Estado", ESTADO_OPTIONS)
-sort_by = f3.selectbox("Ordenar por", list(SORT_MAP.keys()), index=0)
-asc     = f4.radio("Ordem", ["↑ Crescente", "↓ Decrescente"], horizontal=True) == "↑ Crescente"
+    def _add_row(self):
+        def on_save(d):
+            insert_row(d)
+            self._df = load_all()
+            self._apply_filters()
+            self._set_status('✅ Cápsula adicionada.')
+        FormDialog(self, 'Adicionar nova cápsula', on_save=on_save)
 
+    def _edit_row(self, row_id):
+        all_data = load_all()
+        match = all_data[all_data['id'] == row_id]
+        if match.empty:
+            messagebox.showerror('Erro', f'ID {row_id} não existe.')
+            return
+        def on_save(d):
+            update_row(row_id, d)
+            self._df = load_all()
+            self._apply_filters()
+            self._set_status(f'✅ Registo {row_id} atualizado.')
+        FormDialog(self, f'Editar registo ID {row_id}',
+                   defaults=match.iloc[0].to_dict(), on_save=on_save)
 
-# ══════════════════════════════════════════════════════════════════════════════
-# LOAD + FILTER DATA
-# ══════════════════════════════════════════════════════════════════════════════
-df = load_all()
-
-if df.empty:
-    st.info("📂 Sem dados. Coloque um ficheiro .xlsx na pasta do servidor e clique em **🔄 Recarregar Excel**.")
-    st.stop()
-
-if search:
-    mask = (
-        df["localizacao"].str.contains(search, case=False, na=False) |
-        df["projeto"].str.contains(search, case=False, na=False) |
-        df["codigo"].str.contains(search, case=False, na=False) |
-        df["obs"].str.contains(search, case=False, na=False)
-    )
-    df = df[mask]
-
-if estados:
-    df = df[df["estado"].isin(estados)]
-
-df = df.sort_values(SORT_MAP[sort_by], ascending=asc, na_position="last")
-
-
-# ══════════════════════════════════════════════════════════════════════════════
-# STATISTICS
-# ══════════════════════════════════════════════════════════════════════════════
-total_qtd = pd.to_numeric(df["qtd"], errors="coerce").sum()
-stats = [
-    ("Registos", len(df)),
-    ("Total cápsulas", int(total_qtd) if pd.notna(total_qtd) else "—"),
-    ("Localizações", df["localizacao"].nunique()),
-    ("Projetos", df["projeto"].nunique()),
-    ("Total na BD", len(load_all())),
-]
-
-cols = st.columns(len(stats))
-for col, (label, value) in zip(cols, stats):
-    col.markdown(
-        f'<div class="stat-card">'
-        f'<div class="stat-value">{value}</div>'
-        f'<div class="stat-label">{label}</div>'
-        f'</div>',
-        unsafe_allow_html=True,
-    )
-
-st.markdown("<br>", unsafe_allow_html=True)
-
-with st.expander("Ver detalhe por Estado e Projeto"):
-    ec1, ec2 = st.columns(2)
-    with ec1:
-        st.markdown("**Por Estado**")
-        st.dataframe(
-            df.groupby("estado", dropna=False)
-              .agg(Registos=("id", "count"))
-              .sort_values("Registos", ascending=False)
-              .reset_index().rename(columns={"estado": "Estado"}),
-            hide_index=True, width='stretch',
-        )
-    with ec2:
-        st.markdown("**Top 15 Projetos**")
-        st.dataframe(
-            df.groupby("projeto", dropna=False)
-              .agg(Registos=("id", "count"))
-              .sort_values("Registos", ascending=False)
-              .head(15).reset_index().rename(columns={"projeto": "Projeto"}),
-            hide_index=True, width='stretch',
-        )
-
-
-# ══════════════════════════════════════════════════════════════════════════════
-# TABLE
-# ══════════════════════════════════════════════════════════════════════════════
-st.markdown(f"### 📋 Inventário — {len(df)} registo(s)")
-
-display_df = df[["id", "localizacao", "projeto", "codigo",
-                  "data_rececao", "qtd", "estado", "obs"]].copy()
-display_df.columns = ["ID", "Localização", "Projeto", "Código",
-                       "Data receção", "Qtd.", "Estado", "Obs."]
-display_df = display_df.fillna("").replace("nan", "")
-
-st.dataframe(
-    display_df,
-    hide_index=True,
-    width='stretch',
-)
-
-
-# ══════════════════════════════════════════════════════════════════════════════
-# EDIT / DELETE
-# ══════════════════════════════════════════════════════════════════════════════
-st.markdown("---")
-st.markdown("### ✏️ Editar / Remover registo")
-
-all_ids = load_all()["id"].tolist()
-
-st.markdown("**ID do registo**")
-ec1, ec2, ec3, _ = st.columns([2, 1, 1, 4])
-
-with ec1:
-    selected_id = st.number_input(
-        "id", min_value=1, step=1, label_visibility="collapsed",
-        value=int(all_ids[0]) if all_ids else 1,
-    )
-
-with ec2:
-    if st.button("✏️ Editar", use_container_width=True):
-        if selected_id in all_ids:
-            st.session_state.edit_id = int(selected_id)
-            st.session_state.show_form = False
-            st.rerun()
-        else:
-            st.error(f"ID {selected_id} não existe.")
-
-with ec3:
-    if st.button("🗑️ Apagar", use_container_width=True):
-        if int(selected_id) in all_ids:
-            st.session_state.confirm_delete = int(selected_id)
-        else:
-            st.error(f"ID {selected_id} não existe.")
-
-if st.session_state.confirm_delete:
-    cid = st.session_state.confirm_delete
-    match = load_all()
-    match = match[match["id"] == cid]
-    if not match.empty:
+    def _delete_row(self, row_id):
+        all_data = load_all()
+        match = all_data[all_data['id'] == row_id]
+        if match.empty:
+            messagebox.showerror('Erro', f'ID {row_id} não existe.')
+            return
         r = match.iloc[0]
-        st.warning(
-            f"⚠️ Confirma a eliminação do registo **ID {cid}** — "
-            f"*{r['localizacao']}* / *{r['projeto']}*?"
+        if messagebox.askyesno('Confirmar eliminação',
+                               f'Eliminar registo ID {row_id}?\n\n'
+                               f'{r["localizacao"]} / {r["projeto"]}'):
+            delete_row(row_id)
+            self._df = load_all()
+            self._apply_filters()
+            self._set_status(f'Registo {row_id} eliminado.')
+
+    def _edit_by_id(self):
+        self._edit_row(self.v_id.get())
+
+    def _delete_by_id(self):
+        self._delete_row(self.v_id.get())
+
+    def _edit_selected(self):
+        item = self.tree.focus()
+        if item:
+            self._edit_row(int(self.tree.item(item)['values'][0]))
+
+    def _delete_selected(self):
+        item = self.tree.focus()
+        if item:
+            self._delete_row(int(self.tree.item(item)['values'][0]))
+
+    def _export_excel(self):
+        if self._df.empty:
+            messagebox.showinfo('Info', 'Sem dados para exportar.')
+            return
+        filename = f'capsulas_{datetime.now().strftime("%Y%m%d_%H%M")}.xlsx'
+        path = filedialog.asksaveasfilename(
+            defaultextension='.xlsx',
+            initialfile=filename,
+            filetypes=[('Excel', '*.xlsx')],
+            initialdir=APP_DIR,
         )
-        dc1, dc2 = st.columns([1, 1])
-        if dc1.button("✅ Sim, eliminar", type="primary"):
-            delete_row(cid)
-            st.session_state.confirm_delete = None
-            st.success(f"Registo {cid} eliminado.")
-            st.rerun()
-        if dc2.button("❌ Cancelar"):
-            st.session_state.confirm_delete = None
-            st.rerun()
+        if path:
+            with open(path, 'wb') as f:
+                f.write(to_excel_bytes(self._df))
+            self._set_status(f'✅ Exportado: {os.path.basename(path)}')
+
+    # ── Helpers ─────────────────────────────────────────────────────────────────
+    def _on_select(self, _event):
+        item = self.tree.focus()
+        if item:
+            self.v_id.set(int(self.tree.item(item)['values'][0]))
+
+    def _on_double_click(self, _event):
+        self._edit_selected()
+
+    def _show_ctx(self, event):
+        item = self.tree.identify_row(event.y)
+        if item:
+            self.tree.selection_set(item)
+            self.tree.focus(item)
+            self._ctx.post(event.x_root, event.y_root)
+
+    def _col_sort(self, col):
+        if self.v_sort.get() == col:
+            self.v_asc.set(not self.v_asc.get())
+        else:
+            self.v_sort.set(col)
+            self.v_asc.set(True)
+        self._apply_filters()
+
+    def _set_status(self, msg):
+        self.v_status.set(msg)
+        self.after(4000, lambda: self.v_status.set(''))
+
+
+# ── Entry point ────────────────────────────────────────────────────────────────
+if __name__ == '__main__':
+    init_db()
+    App().mainloop()
