@@ -30,17 +30,21 @@ A app verifica automaticamente a ligação à rede antes de abrir. Se a rede nã
 
 ## Como Usar a App
 
+O fluxo normal é gerir tudo pela app — adicionar, editar e apagar registos directamente na base de dados. O Excel serve apenas para carga inicial e backups.
+
 | Ação | Como fazer |
 |---|---|
-| **Reload Excel** | Importa o ficheiro `.xlsx` da pasta de rede |
 | **Nova Cápsula** | Abre formulário para adicionar manualmente |
-| **Exportar Excel** | Guarda os dados num ficheiro Excel |
+| **Importar Excel** | Carrega dados do ficheiro `.xlsx` (carga inicial ou ocasional) |
+| **Exportar Backup** | Guarda todos os dados num ficheiro Excel para backup |
 | **Editar registo** | Duplo-clique na linha, ou selecionar ID e clicar Editar |
 | **Apagar registo** | Selecionar ID e clicar Apagar (pede confirmação) |
 | **Pesquisa** | Escrever na caixa de pesquisa (filtra em tempo real) |
 | **Filtrar por Estado** | Selecionar estado no filtro |
 | **Ordenar** | Clicar no cabeçalho de qualquer coluna |
 | **Menu de contexto** | Botão direito do rato numa linha |
+
+> **Importar Excel** pede confirmação antes de executar. Registos editados ou adicionados manualmente na app são sempre preservados.
 
 ---
 

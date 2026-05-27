@@ -89,7 +89,7 @@ def update_row(row_id, d):
     with get_conn() as conn:
         conn.execute(
             "UPDATE capsulas SET localizacao=?,projeto=?,codigo=?,data_rececao=?,qtd=?,"
-            "estado=?,obs=?,updated_at=datetime('now') WHERE id=?",
+            "estado=?,obs=?,source='manual',updated_at=datetime('now') WHERE id=?",
             (d['localizacao'], d['projeto'], d['codigo'],
              d['data_rececao'], d['qtd'], d['estado'], d['obs'], row_id),
         )
@@ -332,12 +332,12 @@ class App(ttkb.Window):
         # ── Toolbar ─────────────────────────────────────────────────────────────
         tb = ttk.Frame(self, padding=(10, 6))
         tb.pack(fill=tk.X)
-        ttk.Button(tb, text='🔄  Reload Excel',   command=self._reload_excel,
-                   bootstyle='primary', width=17).pack(side=tk.LEFT, padx=3)
-        ttk.Button(tb, text='➕  Nova Cápsula',   command=self._add_row,
-                   bootstyle='success', width=17).pack(side=tk.LEFT, padx=3)
-        ttk.Button(tb, text='📤  Exportar Excel', command=self._export_excel,
-                   bootstyle='info',    width=17).pack(side=tk.LEFT, padx=3)
+        ttk.Button(tb, text='➕  Nova Cápsula',      command=self._add_row,
+                   bootstyle='success', width=18).pack(side=tk.LEFT, padx=3)
+        ttk.Button(tb, text='📥  Importar Excel',   command=self._reload_excel,
+                   bootstyle='secondary', width=18).pack(side=tk.LEFT, padx=3)
+        ttk.Button(tb, text='📤  Exportar Backup',  command=self._export_excel,
+                   bootstyle='info',    width=18).pack(side=tk.LEFT, padx=3)
 
         # ── Filters ─────────────────────────────────────────────────────────────
         flt = ttk.LabelFrame(self, text='Filtros', padding=(10, 5))
@@ -496,6 +496,15 @@ class App(ttkb.Window):
 
     # ── Actions ─────────────────────────────────────────────────────────────────
     def _reload_excel(self):
+        if not messagebox.askyesno(
+            'Importar Excel',
+            'Esta operação vai substituir todos os registos importados do Excel '
+            'pelos dados do ficheiro actual.\n\n'
+            'Registos adicionados ou editados manualmente na app são preservados.\n\n'
+            'Continuar?'
+        ):
+            return
+
         excel_path = find_excel_in_folder()
         if not excel_path:
             excel_path = filedialog.askopenfilename(
@@ -509,7 +518,7 @@ class App(ttkb.Window):
             bulk_import(read_excel(excel_path))
             self._df = load_all()
             self._apply_filters()
-            self._set_status(f'✅ Excel recarregado — {len(self._df)} registos')
+            self._set_status(f'✅ Excel importado — {len(self._df)} registos')
         except Exception as e:
             messagebox.showerror('Erro ao importar', str(e))
 
